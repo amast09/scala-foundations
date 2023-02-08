@@ -18,5 +18,3 @@ val obj: Map[String, String] = Map(("foo" -> "bar"), ("baz" -> "Bum"))
 obj.exists { case (_, value) =>
   value == "Bum"
 }
-
-List[Int]().foldLeft(_ + _)
