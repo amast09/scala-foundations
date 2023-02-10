@@ -13,24 +13,13 @@ import scala.util.{Failure, Success, Try}
 object UserCreationApp extends App {
   import UserCreationExercises._
 
-  readUser()
+  readUser(Console.system, Clock.system)
 }
 
 object UserCreationExercises {
   val dateOfBirthFormatter: DateTimeFormatter = DateTimeFormatter.ofPattern("dd-MM-yyyy")
 
   case class User(name: String, dateOfBirth: LocalDate, createdAt: Instant, subscribedToMailingList: Boolean)
-
-  def readUser(): User = {
-    println("What's your name?")
-    val name = StdIn.readLine()
-    println("What's your date of birth? [dd-mm-yyyy]")
-    val dateOfBirth = LocalDate.parse(StdIn.readLine(), dateOfBirthFormatter)
-    val now         = Instant.now()
-    val user        = User(name, dateOfBirth, now, false)
-    println(s"User is $user")
-    user
-  }
 
   def formatYesNo(bool: Boolean): String = bool match {
     case true  => "Y"
@@ -117,9 +106,25 @@ object UserCreationExercises {
   //       and update the signature of `readUser`.
   def readUser(console: Console, clock: Clock): User = {
     val name                    = readName(console)
-    val dateOfBirth             = readDateOfBirth(console)
-    val subscribedToMailingList = readSubscribeToMailingList(console)
+    val dateOfBirth             = readDateOfBirthRetry(console, maxAttempt = 3)
+    val subscribedToMailingList = readSubscribeToMailingListRetry(console, maxAttempt = 3)
     User(name, dateOfBirth, clock.now(), subscribedToMailingList)
+  }
+
+  @tailrec
+  def retry[R](onError: (Throwable) => Unit, funcToRetry: () => Either[Throwable, R], maxAttempt: Int): R = {
+    require(maxAttempt > 0, "Invalid `maxAttempt` parameter")
+
+    val attempt           = funcToRetry()
+    val remainingAttempts = maxAttempt - 1
+
+    attempt.left.foreach(onError)
+
+    attempt match {
+      case Left(error) if remainingAttempts < 1 => throw error
+      case Left(_)                              => retry(onError, funcToRetry, remainingAttempts)
+      case Right(subscriptionResponse)          => subscriptionResponse
+    }
   }
 
   //////////////////////////////////////////////
@@ -144,7 +149,11 @@ object UserCreationExercises {
   // Note: You can implement the retry logic using recursion or a for/while loop. I suggest
   //       trying both possibilities.
   def readSubscribeToMailingListRetry(console: Console, maxAttempt: Int): Boolean =
-    ???
+    retry(
+      _ => console.writeLine("""Incorrect format, enter "Y" for Yes or "N" for "No""""),
+      () => Try(readSubscribeToMailingList(console)).toEither,
+      maxAttempt
+    )
 
   // 6. Implement `readDateOfBirthRetry` which behaves like
   // `readDateOfBirth` but retries when the user enters an invalid input.
@@ -162,7 +171,11 @@ object UserCreationExercises {
   // Throws an exception because the user only had 1 attempt and they entered an invalid input.
   // Note: `maxAttempt` must be greater than 0, if not you should throw an exception.
   def readDateOfBirthRetry(console: Console, maxAttempt: Int): LocalDate =
-    ???
+    retry(
+      _ => console.writeLine("""Incorrect format, for example enter "18-03-2001" for 18th of March 2001"""),
+      () => Try(readDateOfBirth(console)).toEither,
+      maxAttempt
+    )
 
   // 7. Update `readUser` so that it allows the user to make up to 2 mistakes (3 attempts)
   // when entering their date of birth and mailing list subscription flag.
