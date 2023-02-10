@@ -1,3 +1,5 @@
+import java.time.format.FormatStyle
+import java.time.format.DateTimeFormatter
 import java.time.LocalDate
 import exercises.generic.GenericFunctionExercises._
 
@@ -9,6 +11,11 @@ val replicate: (Int, String) => String = (numReplications, s) => List.fill(numRe
 replicate(3, "hello ")
 
 val d = LocalDate.now()
+
+val f = DateTimeFormatter.ofPattern("dd-MM-yyyy")
+val d2 = LocalDate.parse("22-03-1991", f)
+
+f.format(d)
 
 "\"" + d.toString + "\""
 d.toEpochDay.toString
