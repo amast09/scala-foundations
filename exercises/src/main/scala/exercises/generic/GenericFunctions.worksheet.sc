@@ -18,3 +18,26 @@ val obj: Map[String, String] = Map(("foo" -> "bar"), ("baz" -> "Bum"))
 obj.exists { case (_, value) =>
   value == "Bum"
 }
+
+case class Foo(bar: Int)
+
+val xyz = List[Foo](Foo(1), Foo(-1), Foo(2))
+
+xyz.minByOption(_.bar)
+
+val option1 = Option(1)
+val option2 = Option(1)
+val option3 = Option.empty[Int]
+val option4 = Option.empty[Int]
+
+val abc = (option1, option2)
+
+val map1 = Map(1 -> "C/C++", 5 -> "foobar")
+val map2 = Map(5 -> "Java", 8 -> "Scala")
+
+println("Map1 : " + map1)
+println("Map2 : " + map2)
+
+// concatenating maps
+val concMap = map1.++(map2)
+println("Concatenated Map : " + concMap)

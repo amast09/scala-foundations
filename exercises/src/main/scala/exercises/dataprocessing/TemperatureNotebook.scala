@@ -4,6 +4,7 @@ import exercises.dataprocessing.ThreadPoolUtil.fixedSizeExecutionContext
 import exercises.dataprocessing.TimeUtil.{bench, Labelled}
 import kantan.csv._
 import kantan.csv.ops._
+import scala.concurrent.ExecutionContext
 
 // Run the notebook using green arrow (if available in your IDE)
 // or run `sbt` in your terminal to open sbt in shell mode then type:
@@ -23,27 +24,34 @@ object TemperatureNotebook extends App {
 
   val rows: List[Either[ReadError, Sample]] = reader.toList
 
-  val failures: List[ReadError] = rows.collect { case Left(error)   => error }
+  val failures: List[ReadError] = rows.collect { case Left(error) => error }
   val samples: List[Sample]     = rows.collect { case Right(sample) => sample }
 
   // we can also extract failures and successes in one go using `partitionMap`
   // val (failures, successes) = rows.partitionMap(identity)
 
-  println(s"Parsed ${samples.size} rows successfully and ${failures.size} rows failed ")
-
   // a. Implement `samples`, a `ParList` containing all the `Samples` in `successes`.
   // Partition `parSamples` so that it contains 10 partitions of roughly equal size.
   // Note: Check `ParList` companion object
-  lazy val parSamples: ParList[Sample] =
-    ???
+  val parSize = Math.ceil(samples.length.toDouble / 12).toInt
+  val parSamples: ParList[Sample] =
+    ParList.byPartitionSize(parSize, samples, fixedSizeExecutionContext(12))
 
-  // b. Implement `minSampleByTemperature` in TemperatureExercises
-  lazy val coldestSample: Option[Sample] =
-    TemperatureExercises.minSampleByTemperature(parSamples)
+  // // b. Implement `minSampleByTemperature` in TemperatureExercises
+  // val coldestSample: Option[Sample] =
+  //   TemperatureExercises.minSampleByTemperature(parSamples)
 
-  // c. Implement `averageTemperature` in TemperatureExercises
-  lazy val averageTemperature: Option[Double] =
-    TemperatureExercises.averageTemperature(parSamples)
+  // println(s"the coldest sample is ${coldestSample}")
+
+  // // c. Implement `averageTemperature` in TemperatureExercises
+  // val averageTemperature: Option[Double] =
+  //   TemperatureExercises.averageTemperature(parSamples)
+
+  // println(s"the average temp is ${averageTemperature}")
+
+  val summaries = TemperatureExercises.aggregateSummary(s => List(s.city, s.country))(parSamples)
+
+  summaries.foreach(t => println(s"${t._1} - ${t._2}"))
 
   //////////////////////
   // Benchmark ParList
@@ -57,8 +65,8 @@ object TemperatureNotebook extends App {
   bench("sum", iterations = 200, warmUpIterations = 40, ignore = true)(
     Labelled("List foldLeft", () => samples.foldLeft(0.0)((state, sample) => state + sample.temperatureFahrenheit)),
     Labelled("List map + sum", () => samples.map(_.temperatureFahrenheit).sum),
-//    Labelled("ParList foldMap", () => ???),
-//    Labelled("ParList parFoldMap", () => ???),
+    Labelled("ParList foldMap", () => parSamples.foldMap(_.temperatureFahrenheit)(Monoid.sum[Double])),
+    Labelled("ParList parFoldMap", () => parSamples.parallelFoldMap(_.temperatureFahrenheit)(Monoid.sum[Double]))
   )
 
   // Compare the runtime performance of various implementations of `summary`
@@ -70,14 +78,12 @@ object TemperatureNotebook extends App {
     Labelled("List 4 iterations", () => TemperatureExercises.summaryList(samples)),
     Labelled("List 1 iteration", () => TemperatureExercises.summaryListOnePass(samples)),
     Labelled("ParList 4 iterations", () => TemperatureExercises.summaryParList(parSamples)),
-    Labelled("ParList 1 iteration", () => TemperatureExercises.summaryParListOnePass(parSamples)),
+    Labelled("ParList 1 iteration", () => TemperatureExercises.summaryParListOnePass(parSamples))
   )
 
   //////////////////////////////////////////////
-  // Bonus question (not covered by the video)
+  // TODO: Bonus question (not covered by the video)
   //////////////////////////////////////////////
-
-  // Generalise Monoid sum to accept all types of number (Hint: check `Numeric`, e.g. Numeric[Int], `Numeric[Double]`)
 
   // Generalise Monoid minBy/maxBy from a hard-coded `Sample => Double` to a generic `From => To`
   // Is it possible to write such a Monoid for any type `From` and `To` or do you need additional constraints?
