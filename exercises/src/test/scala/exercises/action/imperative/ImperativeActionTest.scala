@@ -10,12 +10,12 @@ import scala.util.{Failure, Success, Try}
 // testOnly exercises.action.imperative.ImperativeActionTest
 class ImperativeActionTest extends AnyFunSuite with ScalaCheckDrivenPropertyChecks {
 
-  ignore("retry when maxAttempt is 0") {
+  test("retry when maxAttempt is 0") {
     val result = Try(retry(0)(""))
     assert(result.isFailure)
   }
 
-  ignore("retry when action fails") {
+  test("retry when action fails") {
     var counter = 0
     val error   = new Exception("Boom")
 
@@ -28,7 +28,7 @@ class ImperativeActionTest extends AnyFunSuite with ScalaCheckDrivenPropertyChec
     assert(counter == 5)
   }
 
-  ignore("retry until action succeeds") {
+  test("retry until action succeeds") {
     var counter = 0
     val result = Try(retry(5) {
       counter += 1
@@ -39,4 +39,29 @@ class ImperativeActionTest extends AnyFunSuite with ScalaCheckDrivenPropertyChec
     assert(counter == 3)
   }
 
+  test("onError executes the `cleanup` function when the action errors") {
+    val expectedResult = new Exception("BANG!")
+    var counter        = 0
+    val result = Try(
+      onError(
+        throw expectedResult,
+        (e: Throwable) => counter += 1
+      )
+    )
+
+    assert(counter == 1)
+    assert(result == Failure(expectedResult))
+  }
+
+  test("onError does not execute the `cleanup` function when the action is successful") {
+    val expectedResult = 1991
+    var counter        = 0
+    val result = onError(
+      expectedResult,
+      (e: Throwable) => counter += 1
+    )
+
+    assert(counter == 0)
+    assert(result == expectedResult)
+  }
 }

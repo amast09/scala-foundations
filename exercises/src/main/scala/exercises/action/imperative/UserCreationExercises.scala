@@ -111,22 +111,6 @@ object UserCreationExercises {
     User(name, dateOfBirth, clock.now(), subscribedToMailingList)
   }
 
-  @tailrec
-  def retry[R](onError: (Throwable) => Unit, funcToRetry: () => Either[Throwable, R], maxAttempt: Int): R = {
-    require(maxAttempt > 0, "Invalid `maxAttempt` parameter")
-
-    val attempt           = funcToRetry()
-    val remainingAttempts = maxAttempt - 1
-
-    attempt.left.foreach(onError)
-
-    attempt match {
-      case Left(error) if remainingAttempts < 1 => throw error
-      case Left(_)                              => retry(onError, funcToRetry, remainingAttempts)
-      case Right(subscriptionResponse)          => subscriptionResponse
-    }
-  }
-
   //////////////////////////////////////////////
   // PART 2: Error handling
   //////////////////////////////////////////////
@@ -148,12 +132,12 @@ object UserCreationExercises {
   // Note: `maxAttempt` must be greater than 0, if not you should throw an exception.
   // Note: You can implement the retry logic using recursion or a for/while loop. I suggest
   //       trying both possibilities.
-  def readSubscribeToMailingListRetry(console: Console, maxAttempt: Int): Boolean =
-    retry(
-      _ => console.writeLine("""Incorrect format, enter "Y" for Yes or "N" for "No""""),
-      () => Try(readSubscribeToMailingList(console)).toEither,
-      maxAttempt
+  def readSubscribeToMailingListRetry(console: Console, maxAttempt: Int): Boolean = retry(maxAttempt) {
+    onError(
+      action = readSubscribeToMailingList(console),
+      cleanup = _ => console.writeLine("""Incorrect format, enter "Y" for Yes or "N" for "No"""")
     )
+  }
 
   // 6. Implement `readDateOfBirthRetry` which behaves like
   // `readDateOfBirth` but retries when the user enters an invalid input.
@@ -170,12 +154,12 @@ object UserCreationExercises {
   // [Prompt] Incorrect format, for example enter "18-03-2001" for 18th of March 2001
   // Throws an exception because the user only had 1 attempt and they entered an invalid input.
   // Note: `maxAttempt` must be greater than 0, if not you should throw an exception.
-  def readDateOfBirthRetry(console: Console, maxAttempt: Int): LocalDate =
-    retry(
-      _ => console.writeLine("""Incorrect format, for example enter "18-03-2001" for 18th of March 2001"""),
-      () => Try(readDateOfBirth(console)).toEither,
-      maxAttempt
+  def readDateOfBirthRetry(console: Console, maxAttempt: Int): LocalDate = retry(maxAttempt) {
+    onError(
+      action = readDateOfBirth(console),
+      cleanup = _ => console.writeLine("""Incorrect format, for example enter "18-03-2001" for 18th of March 2001""")
     )
+  }
 
   // 7. Update `readUser` so that it allows the user to make up to 2 mistakes (3 attempts)
   // when entering their date of birth and mailing list subscription flag.
