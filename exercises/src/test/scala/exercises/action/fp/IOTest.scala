@@ -27,7 +27,7 @@ class IOTest extends AnyFunSuite with ScalaCheckDrivenPropertyChecks {
   }
 
   // replace `ignore` by `test` to enable this test
-  ignore("andThen") {
+  test("andThen") {
     var counter = 0
 
     val first  = IO(counter += 1)
@@ -40,18 +40,21 @@ class IOTest extends AnyFunSuite with ScalaCheckDrivenPropertyChecks {
     assert(counter == 2) // first and second were executed in the expected order
   }
 
-  ignore("map") {
+  test("map") {
     var counter = 0
 
-    val first  = IO(counter += 1)
-    val action = first.map(_ => "Hello")
+    val first = IO {
+      counter += 1
+      counter
+    }
+    val action = first.map(n => "Hello " + n.toString())
     assert(counter == 0) // nothing happened before unsafeRun
 
-    action.unsafeRun()
+    assert(action.unsafeRun() == "Hello 1")
     assert(counter == 1) // first was executed
   }
 
-  ignore("flatMap") {
+  test("flatMap") {
     var counter = 0
 
     val first  = IO(counter += 1)
@@ -68,46 +71,69 @@ class IOTest extends AnyFunSuite with ScalaCheckDrivenPropertyChecks {
   // PART 3: Error handling
   //////////////////////////////////////////////
 
-  test("onError") {}
+  test("onError runs the `onError` function when the action errors") {
+    var counter           = 0
+    val expectedException = new Exception("Boom!")
 
-  ignore("retry, maxAttempt must be greater than 0") {
+    val action = IO(throw expectedException).onError(_ => IO(counter += 1))
+    assert(counter == 0)
+
+    val result = Try(action.unsafeRun())
+
+    assert(counter == 1)
+    assert(result == Failure(expectedException))
+  }
+
+  test("onError does not run the `onError` function when the action succeeds") {
+    var counter = 0
+
+    val action = IO(3).onError(_ => IO(counter += 1))
+    assert(counter == 0)
+
+    val result = action.unsafeRun()
+
+    assert(counter == 0)
+    assert(result == 3)
+  }
+
+  test("retry, maxAttempt must be greater than 0") {
     val retryAction = IO(1).retry(0)
     val result      = Try(retryAction.unsafeRun())
 
     assert(result.isFailure)
   }
 
-  ignore("retry until action succeeds") {
-    var counter = 0
-    val error   = new Exception("Boom")
+  test("retry until action succeeds") {
+    var counter        = 0
+    val expectedResult = "Hello"
     val action = IO {
       counter += 1
-      if (counter >= 3) "Hello"
-      else throw error
+      if (counter >= 3) expectedResult
+      else throw new Exception("BANG!")
     }
 
     val retryAction = action.retry(5)
     assert(counter == 0)
 
-    val result = Try(retryAction.unsafeRun())
-    assert(result == Success("Hello"))
+    val result = retryAction.unsafeRun()
+    assert(result == expectedResult)
     assert(counter == 3)
   }
 
-  ignore("retry fails if maxAttempt is too low") {
-    var counter = 0
-    val error   = new Exception("Boom")
+  test("retry fails if maxAttempt is too low") {
+    var counter       = 0
+    val expectedError = new Exception("Boom")
     val action = IO {
       counter += 1
       if (counter >= 3) "Hello"
-      else throw error
+      else throw expectedError
     }
 
     val retryAction = action.retry(2)
     assert(counter == 0)
 
     val result = Try(retryAction.unsafeRun())
-    assert(result == Failure(error))
+    assert(result == Failure(expectedError))
     assert(counter == 2)
   }
 

@@ -48,3 +48,14 @@ println("Map2 : " + map2)
 // concatenating maps
 val concMap = map1.++(map2)
 println("Concatenated Map : " + concMap)
+
+val firstInts = List(1,2,3)
+val secondInts = List(3,4,5,6)
+val thirdInts = List(7,8)
+
+val zipIntResult = for {
+  firstInt <- firstInts
+  secondInt <- secondInts
+  thirdInt <- thirdInts
+} yield (firstInt, secondInt, thirdInt)
+
