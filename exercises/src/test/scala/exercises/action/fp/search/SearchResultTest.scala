@@ -1,9 +1,13 @@
 package exercises.action.fp.search
 
 import exercises.action.fp.search.SearchFlightGenerator._
+import exercises.action.fp.IO
+import exercises.action.fp.search.Airport._
 import org.scalacheck.Gen
 import org.scalatest.funsuite.AnyFunSuite
 import org.scalatestplus.scalacheck.ScalaCheckDrivenPropertyChecks
+
+import java.time.{Duration, Instant, LocalDate}
 
 import scala.Ordering.Implicits._
 
@@ -44,6 +48,38 @@ class SearchResultTest extends AnyFunSuite with ScalaCheckDrivenPropertyChecks {
         flight  <- result.flights
       } assert(fastest.duration <= flight.duration)
     }
+  }
+
+  test("constructed SearchResult is sorted") {
+    val now   = Instant.now()
+    val today = LocalDate.now()
+
+    val flight1 = Flight("1", "BA", parisOrly, londonGatwick, now, Duration.ofMinutes(100), 0, 89.5, "")
+    val flight2 = Flight("2", "LH", parisOrly, londonGatwick, now, Duration.ofMinutes(105), 0, 96.5, "")
+    val flight3 = Flight("3", "BA", parisOrly, londonGatwick, now, Duration.ofMinutes(140), 1, 234.0, "")
+    val flight4 = Flight("4", "LH", parisOrly, londonGatwick, now, Duration.ofMinutes(210), 2, 55.5, "")
+
+    assert(SearchResult(List(flight3, flight2, flight4, flight1)).flights == List(flight1, flight2, flight3, flight4))
+  }
+
+  test("constructed SearchResult removes duplicates picking the cheapest flight when a duplicate is found") {
+    val now   = Instant.now()
+    val today = LocalDate.now()
+
+    val cheapFlight1     = Flight("1", "BA", parisOrly, londonGatwick, now, Duration.ofMinutes(100), 0, 89.5, "")
+    val expensiveFlight1 = Flight("1", "BA", parisOrly, londonGatwick, now, Duration.ofMinutes(100), 0, 189.5, "")
+    val flight2          = Flight("2", "LH", parisOrly, londonGatwick, now, Duration.ofMinutes(105), 0, 96.5, "")
+    val flight3          = Flight("3", "BA", parisOrly, londonGatwick, now, Duration.ofMinutes(140), 1, 234.0, "")
+    val flight4          = Flight("4", "LH", parisOrly, londonGatwick, now, Duration.ofMinutes(210), 2, 55.5, "")
+
+    assert(
+      SearchResult(List(flight3, flight2, expensiveFlight1, flight4, cheapFlight1)).flights == List(
+        cheapFlight1,
+        flight2,
+        flight3,
+        flight4
+      )
+    )
   }
 
 }
