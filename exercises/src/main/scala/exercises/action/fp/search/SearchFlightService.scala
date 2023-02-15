@@ -23,16 +23,19 @@ object SearchFlightService {
   // (see `SearchResult` companion object).
   // Note: A example based test is defined in `SearchFlightServiceTest`.
   //       You can also defined tests for `SearchResult` in `SearchResultTest`
-  def fromTwoClients(client1: SearchFlightClient, client2: SearchFlightClient): SearchFlightService =
+  def fromTwoClients(client1: SearchFlightClient, client2: SearchFlightClient)(implicit
+    ec: ExecutionContext
+  ): SearchFlightService =
     new SearchFlightService {
       def search(from: Airport, to: Airport, date: LocalDate): IO[SearchResult] = {
         def searchByClient(client: SearchFlightClient): IO[List[Flight]] =
           client.search(from, to, date).handleErrorWith(_ => IO(List.empty[Flight]))
 
-        for {
-          client1Result <- searchByClient(client1)
-          client2Result <- searchByClient(client2)
-        } yield SearchResult(client1Result ++ client2Result)
+        searchByClient(client1)
+          .parZip(searchByClient(client2))(ec)
+          .map { case (searchResult1, searchResult2) =>
+            SearchResult(searchResult1 ++ searchResult2)
+          }
       }
     }
 
@@ -50,14 +53,14 @@ object SearchFlightService {
   // a list of `SearchFlightClient`.
   // Note: You can use a recursion/loop/foldLeft to call all the clients and combine their results.
   // Note: We can assume `clients` to contain less than 100 elements.
-  def fromClients(clients: List[SearchFlightClient]): SearchFlightService =
+  def fromClients(clients: List[SearchFlightClient])(implicit ec: ExecutionContext): SearchFlightService =
     new SearchFlightService {
       def search(from: Airport, to: Airport, date: LocalDate): IO[SearchResult] = {
         def searchByClient(client: SearchFlightClient): IO[List[Flight]] =
           client.search(from, to, date).handleErrorWith(_ => IO(List.empty[Flight]))
 
         clients
-          .traverse(searchByClient)
+          .parTraverse(searchByClient)(ec)
           .map(_.flatten)
           .map(SearchResult(_))
       }

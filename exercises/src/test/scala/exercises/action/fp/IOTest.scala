@@ -226,7 +226,7 @@ class IOTest extends AnyFunSuite with ScalaCheckDrivenPropertyChecks {
   //////////////////////////////////////////////
 
   // flaky
-  ignore("parZip second faster than first") {
+  test("parZip second faster than first") {
     var counter = 0
 
     val first  = IO.sleep(10.millis) *> IO { counter += 1; counter }
@@ -240,7 +240,7 @@ class IOTest extends AnyFunSuite with ScalaCheckDrivenPropertyChecks {
   }
 
   // flaky
-  ignore("parZip first faster than second") {
+  test("parZip first faster than second") {
     var counter = 0
 
     val first  = IO { counter += 1; counter }
@@ -254,7 +254,7 @@ class IOTest extends AnyFunSuite with ScalaCheckDrivenPropertyChecks {
   }
 
   // flaky
-  ignore("parSequence") {
+  test("parSequence") {
     var counter = 0
 
     val action = List(
@@ -269,7 +269,7 @@ class IOTest extends AnyFunSuite with ScalaCheckDrivenPropertyChecks {
   }
 
   // flaky
-  ignore("parTraverse") {
+  test("parTraverse") {
     var counter = 0
 
     def sleepAndIncrement(sleepMillis: Int): IO[Int] =
