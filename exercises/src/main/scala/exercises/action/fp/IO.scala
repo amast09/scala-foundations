@@ -8,9 +8,22 @@ import scala.util.{Failure, Success, Try}
 
 trait IO[A] {
 
+  def unsafeRunAsync(callback: Try[A] => Unit): Unit
+
   // Executes the action.
-  // This is the ONLY abstract method of the `IO` trait.
-  def unsafeRun(): A
+  def unsafeRun(): A = {
+    val countDownLatch         = new CountDownLatch(1)
+    var result: Option[Try[A]] = None
+
+    unsafeRunAsync { tryA =>
+      result = Some(tryA)
+      countDownLatch.countDown()
+    }
+
+    countDownLatch.await()
+
+    result.get.get
+  }
 
   // Runs the current IO (`this`), discards its result and runs the second IO (`other`).
   // For example,
@@ -52,8 +65,14 @@ trait IO[A] {
   // action.unsafeRun()
   // Fetches the user with id 1234 from the database and send them an email using the email
   // address found in the database.
-  def flatMap[Next](callback: A => IO[Next]): IO[Next] =
-    IO(callback(unsafeRun()).unsafeRun())
+  def flatMap[Next](next: A => IO[Next]): IO[Next] =
+    IO.async { ioCallback =>
+      this
+        .unsafeRunAsync({
+          case Success(a) => next(a).unsafeRunAsync(ioCallback)
+          case Failure(e) => ioCallback(Failure(e))
+        })
+    }
 
   // Runs the current action, if it fails it executes `cleanup` and rethrows the original error.
   // If the current action is a success, it will return the result.
@@ -99,7 +118,9 @@ trait IO[A] {
   // 1. Success(User(1234, "Bob", ...)) if `action` was successful or
   // 2. Failure(new Exception("User 1234 not found")) if `action` throws an exception
   def attempt: IO[Try[A]] =
-    IO(Try(this.unsafeRun()))
+    IO.async { callback =>
+      this.unsafeRunAsync(res => callback(Try(res)))
+    }
 
   // If the current IO is a success, do nothing.
   // If the current IO is a failure, execute `callback` and keep its result.
@@ -127,25 +148,38 @@ trait IO[A] {
 
   // Runs both the current IO and `other` concurrently,
   // then combine their results into a tuple
-  def parZip[Other](other: IO[Other])(ec: ExecutionContext): IO[(A, Other)] = IO {
+  def parZip[Other](other: IO[Other])(ec: ExecutionContext): IO[(A, Other)] = IO.async { onCompleteParZip =>
     implicit val executionContext = ec
 
-    val futureResult1    = Future(this.unsafeRun())
-    val futureResult2    = Future(other.unsafeRun())
-    val futureResultPair = futureResult1.zip(futureResult2)
+    val result1Promise   = Promise[A]()
+    val result2Promise   = Promise[Other]()
+    val futureResultPair = result1Promise.future.zip(result2Promise.future)
 
-    Await.result(futureResultPair, Duration.Inf)
+    ec.execute(() => this.unsafeRunAsync(result1Promise.complete))
+    ec.execute(() => other.unsafeRunAsync(result2Promise.complete))
+
+    futureResultPair.onComplete(onCompleteParZip)
   }
 }
 
 object IO {
+  def async[A](onComplete: (Try[A] => Unit) => Unit): IO[A] =
+    new IO[A] {
+      def unsafeRunAsync(callback: Try[A] => Unit): Unit = onComplete(callback)
+    }
+
   // Constructor for IO. For example,
   // val greeting: IO[Unit] = IO { println("Hello") }
   // greeting.unsafeRun()
   // prints "Hello"
   def apply[A](action: => A): IO[A] =
-    new IO[A] {
-      def unsafeRun(): A = action
+    async { callback =>
+      callback(Try(action))
+    }
+
+  def dispatch[A](action: => A)(ec: ExecutionContext): IO[A] =
+    async { callback =>
+      ec.execute(() => callback(Try(action)))
     }
 
   // Construct an IO which throws `error` everytime it is called.
@@ -202,11 +236,6 @@ object IO {
   // If no error occurs, `parSequence` returns the users in the same order:
   // List(User(1111, ...), User(2222, ...), User(3333, ...))
   // Note: You may want to use `parZip` to implement `parSequence`.
-  def parSequence2[A](actions: List[IO[A]])(ec: ExecutionContext): IO[List[A]] = IO {
-    actions
-      .map(io => Future(io.unsafeRun())(ec))
-      .map(f => Await.result(f, Duration.Inf))
-  }
 
   def parSequence[A](actions: List[IO[A]])(ec: ExecutionContext): IO[List[A]] =
     actions
