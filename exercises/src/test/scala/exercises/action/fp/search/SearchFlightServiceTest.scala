@@ -63,9 +63,61 @@ class SearchFlightServiceTest extends AnyFunSuite with ScalaCheckDrivenPropertyC
       ) =>
         val service = SearchFlightService.fromTwoClients(client1, client2)
 
-        val result  = service.search(departureAirport, arrivalAirport, departureTime).attempt.unsafeRun()
+        val result = service.search(departureAirport, arrivalAirport, departureTime).attempt.unsafeRun()
 
         assert(result.isSuccess)
+    }
+  }
+
+  test("fromClients aggregates the results of the clients") {
+    val now   = Instant.now()
+    val today = LocalDate.now()
+
+    val expectedFlights = List(
+      Flight("1", "BA", parisOrly, londonGatwick, now, Duration.ofMinutes(100), 0, 89.5, ""),
+      Flight("2", "LH", parisOrly, londonGatwick, now, Duration.ofMinutes(105), 0, 96.5, ""),
+      Flight("3", "BA", parisOrly, londonGatwick, now, Duration.ofMinutes(140), 1, 234.0, ""),
+      Flight("4", "LH", parisOrly, londonGatwick, now, Duration.ofMinutes(210), 2, 55.5, "")
+    )
+    val clients = expectedFlights.map(f => SearchFlightClient.constant(IO(List(f))))
+
+    val service = SearchFlightService.fromClients(clients)
+    val result  = service.search(parisOrly, londonGatwick, today).unsafeRun()
+
+    assert(result == SearchResult(expectedFlights))
+  }
+
+  test("fromClients handles failures gracefully") {
+    forAll(airportGen, airportGen, dateGen, Gen.listOf(clientGen)) {
+      (
+        departureAirport: Airport,
+        arrivalAirport: Airport,
+        departureTime: LocalDate,
+        clients: List[SearchFlightClient]
+      ) =>
+        val service = SearchFlightService.fromClients(clients)
+
+        val result = service.search(departureAirport, arrivalAirport, departureTime).attempt.unsafeRun()
+
+        assert(result.isSuccess)
+    }
+  }
+
+  test("fromClients is client order agnostic") {
+    forAll(airportGen, airportGen, dateGen, Gen.listOf(clientGen)) {
+      (
+        departureAirport: Airport,
+        arrivalAirport: Airport,
+        departureTime: LocalDate,
+        clients: List[SearchFlightClient]
+      ) =>
+        val service1 = SearchFlightService.fromClients(clients)
+        val service2 = SearchFlightService.fromClients(Random.shuffle(clients))
+
+        val result1 = service1.search(departureAirport, arrivalAirport, departureTime).attempt.unsafeRun()
+        val result2 = service2.search(departureAirport, arrivalAirport, departureTime).attempt.unsafeRun()
+
+        assert(result1 == result2)
     }
   }
 

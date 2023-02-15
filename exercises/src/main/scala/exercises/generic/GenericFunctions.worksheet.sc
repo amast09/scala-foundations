@@ -12,7 +12,7 @@ replicate(3, "hello ")
 
 val d = LocalDate.now()
 
-val f = DateTimeFormatter.ofPattern("dd-MM-yyyy")
+val f  = DateTimeFormatter.ofPattern("dd-MM-yyyy")
 val d2 = LocalDate.parse("22-03-1991", f)
 
 f.format(d)
@@ -49,13 +49,22 @@ println("Map2 : " + map2)
 val concMap = map1.++(map2)
 println("Concatenated Map : " + concMap)
 
-val firstInts = List(1,2,3)
-val secondInts = List(3,4,5,6)
-val thirdInts = List(7,8)
+val firstInts  = List(1, 2, 3)
+val secondInts = List(3, 4, 5, 6)
+val thirdInts  = List(7, 8)
 
 val zipIntResult = for {
-  firstInt <- firstInts
+  firstInt  <- firstInts
   secondInt <- secondInts
-  thirdInt <- thirdInts
+  thirdInt  <- thirdInts
 } yield (firstInt, secondInt, thirdInt)
 
+def simpleArraySum(ar: Array[Int]): Int =
+  ar.foldLeft(0)(_ + _)
+
+
+val l1 = List("apple")
+val l2 = List("apple", "apple")
+
+l1.diff(l2)
+l2.diff(l1)

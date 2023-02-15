@@ -52,8 +52,30 @@ object SearchFlightService {
   // Note: We can assume `clients` to contain less than 100 elements.
   def fromClients(clients: List[SearchFlightClient]): SearchFlightService =
     new SearchFlightService {
-      def search(from: Airport, to: Airport, date: LocalDate): IO[SearchResult] =
-        ???
+      def search(from: Airport, to: Airport, date: LocalDate): IO[SearchResult] = {
+        def searchByClient(client: SearchFlightClient): IO[List[Flight]] =
+          client.search(from, to, date).handleErrorWith(_ => IO(List.empty[Flight]))
+
+        clients
+          .traverse(searchByClient)
+          .map(_.flatten)
+          .map(SearchResult(_))
+      }
+
+      // Not tail safe
+      def searchWithRecursion(from: Airport, to: Airport, date: LocalDate): IO[SearchResult] = {
+        def searchByClient(client: SearchFlightClient): IO[List[Flight]] =
+          client.search(from, to, date).handleErrorWith(_ => IO(List.empty[Flight]))
+
+        clients match {
+          case Nil => IO(SearchResult(List()))
+          case head :: next =>
+            for {
+              flightsForCurrentClient    <- searchByClient(head)
+              flightsForRemainingClients <- fromClients(next).search(from, to, date)
+            } yield SearchResult(flightsForCurrentClient ++ flightsForRemainingClients.flights)
+        }
+      }
     }
 
   // 5. Refactor `fromClients` using `sequence` or `traverse` from the `IO` companion object.
