@@ -1,7 +1,6 @@
 package exercises.errorhandling.either
 
-import exercises.errorhandling.either.EitherExercises2.CountryError._
-import exercises.errorhandling.either.EitherExercises2.UsernameError._
+import exercises.errorhandling.either.EitherExercises2.ValidationError._
 
 object EitherExercises2 {
 
@@ -31,7 +30,7 @@ object EitherExercises2 {
   // validateCountry("FRA") == Right(France)
   // validateCountry("UK")  == Left(InvalidFormat("UK"))
   // validateCountry("ARG") == Left(NotSupported("ARG")), ARG represents Argentina
-  def validateCountry(countryCode: String): Either[CountryError, Country] = {
+  def validateCountry(countryCode: String): Either[ValidationError, Country] = {
     val maybeCountry = Country.all.find(_.code == countryCode)
 
     maybeCountry.toRight(countryCodeIsValidFormat(countryCode) match {
@@ -45,7 +44,7 @@ object EitherExercises2 {
   // checkUsernameSize("bob_2167") == Right(())
   // checkUsernameSize("bob_2")    == Right(())
   // checkUsernameSize("bo")       == Left(TooSmall(2))
-  def checkUsernameSize(username: String): Either[TooSmall, Unit] = {
+  def checkUsernameSize(username: String): Either[ValidationError, Unit] = {
     val usernameLength = username.length()
     Either.cond(usernameLength >= 5, (), TooSmall(usernameLength))
   }
@@ -55,7 +54,7 @@ object EitherExercises2 {
   // checkUsernameCharacters("_abc-123_")  == Right(())
   // checkUsernameCharacters("foo!~23}AD") == Left(InvalidCharacters(List('!','~','}')))
   val INVALID_CHARACTERS = List('!', '~', '}')
-  def checkUsernameCharacters(username: String): Either[InvalidCharacters, Unit] =
+  def checkUsernameCharacters(username: String): Either[ValidationError, Unit] =
     INVALID_CHARACTERS.filter(username.contains(_)) match {
       case Nil                         => Right(())
       case invalidCharactersInUsername => Left(InvalidCharacters(invalidCharactersInUsername))
@@ -70,7 +69,7 @@ object EitherExercises2 {
   // validateUsername("bob_2167")   == Right(Username("bob_2167"))
   // validateUsername("bo")         == Left(TooSmall(2))
   // validateUsername("foo!~23}AD") == Left(InvalidCharacters(List('!','~','}')))
-  def validateUsername(username: String): Either[UsernameError, Username] =
+  def validateUsername(username: String): Either[ValidationError, Username] =
     for {
       _ <- checkUsernameSize(username)
       _ <- checkUsernameCharacters(username)
@@ -81,19 +80,17 @@ object EitherExercises2 {
   // What should be the return type of `validateUser`?
   // validateUser("bob_2167", "FRA") --> Success User(Username("bob_2167"), France)
   // validateUser("bo", "FRA")       --> Failure
-  def validateUser(usernameStr: String, countryStr: String) = // Either[???, User]
-    ???
+  def validateUser(usernameStr: String, countryStr: String): Either[ValidationError, User] =
+    for {
+      username <- validateUsername(usernameStr)
+      country  <- validateCountry(countryStr)
+    } yield User(username, country)
 
-  sealed trait CountryError
-  object CountryError {
-    case class InvalidFormat(country: String) extends CountryError
-    case class NotSupported(country: String)  extends CountryError
+  sealed trait ValidationError
+  object ValidationError {
+    case class InvalidFormat(country: String)      extends ValidationError
+    case class NotSupported(country: String)       extends ValidationError
+    case class TooSmall(inputLength: Int)          extends ValidationError
+    case class InvalidCharacters(char: List[Char]) extends ValidationError
   }
-
-  sealed trait UsernameError
-  object UsernameError {
-    case class TooSmall(inputLength: Int)          extends UsernameError
-    case class InvalidCharacters(char: List[Char]) extends UsernameError
-  }
-
 }
