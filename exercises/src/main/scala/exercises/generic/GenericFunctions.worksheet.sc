@@ -62,9 +62,13 @@ val zipIntResult = for {
 def simpleArraySum(ar: Array[Int]): Int =
   ar.foldLeft(0)(_ + _)
 
-
 val l1 = List("apple")
 val l2 = List("apple", "apple")
 
 l1.diff(l2)
 l2.diff(l1)
+
+val INVALID_CHARACTERS = List('!', '~', '}')
+val candidateString    = "fo!obar"
+
+
