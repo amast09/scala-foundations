@@ -53,9 +53,8 @@ object EitherExercises2 {
   // according to the function `isValidUsernameCharacter`. For example,
   // checkUsernameCharacters("_abc-123_")  == Right(())
   // checkUsernameCharacters("foo!~23}AD") == Left(InvalidCharacters(List('!','~','}')))
-  val INVALID_CHARACTERS = List('!', '~', '}')
   def checkUsernameCharacters(username: String): Either[ValidationError, Unit] =
-    INVALID_CHARACTERS.filter(username.contains(_)) match {
+    username.toList.filter(c => !isValidUsernameCharacter(c)).distinct match {
       case Nil                         => Right(())
       case invalidCharactersInUsername => Left(InvalidCharacters(invalidCharactersInUsername))
     }

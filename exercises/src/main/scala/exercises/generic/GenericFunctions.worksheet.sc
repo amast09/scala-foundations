@@ -1,3 +1,5 @@
+import java.time.Instant
+import java.time.Duration
 import java.time.format.FormatStyle
 import java.time.format.DateTimeFormatter
 import java.time.LocalDate
@@ -71,4 +73,10 @@ l2.diff(l1)
 val INVALID_CHARACTERS = List('!', '~', '}')
 val candidateString    = "fo!obar"
 
+val ttyl = "a"
+val qrs = List("b", "c")
 
+qrs :+ ttyl
+
+
+Duration.between(Instant.now().plusSeconds(30), Instant.now())
